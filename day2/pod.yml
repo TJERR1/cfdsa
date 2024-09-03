@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-example
+  namespace: myns
+  labels:
+    app: myapp
+    dept: eng
+    commit: abc123
+spec:
+  containers:
+  - name: bearbearbearbear
+    image: chukmunnlee/dov-bear@sha256:9b004cdffbe1e3cbab18d8c18da71021d12825210c37f3ad8e9de5a23b67e1f7
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 3000
+    env:
+    - name: INSTANCE_NAME
+      value: kube ports
+    - name: INSTANCE_HASH
+      value: some hashash
