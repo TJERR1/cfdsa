@@ -29,6 +29,11 @@ metadata:
     app: bggapp
     name: bggapp-deploy
 spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   replicas: 3
   selector:
     matchLabels:
@@ -74,9 +79,9 @@ metadata:
     app: bggapp
     name: bggapp-svc
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: bggapp-app
   ports:
-  - port: 3000
+  - port: 80
     targetPort: 3000

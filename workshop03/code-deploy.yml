@@ -1,0 +1,114 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: codeserver-pvc
+  namespace: codeserverns
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: do-block-storage-retain
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codeserver-cm
+  namespace: codeserverns
+data:
+  TZ: Asia/Singapore
+  PROXY_DOMAIN: code-157.230.195.149.nip.io
+  DEFAULT_WORKSPACE: /config/workspace
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: codeserver-secret
+  namespace: codeserverns
+type: Opaque
+data:
+  PASSWORD: cGFzc3dvcmQ=
+  SUDO_PASSWORD: cGFzc3dvcmQ=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codeserver-deploy
+  namespace: codeserverns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: codeserver
+  template:
+    metadata:
+      labels:
+        app: codeserver
+    spec:
+      containers:
+      - name: codeserver-po
+        image: linuxserver/code-server
+        envFrom:
+        - configMapRef:
+            name: codeserver-cm
+        - secretRef:
+            name: codeserver-secret
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "200m"
+        ports:
+        - containerPort: 8443
+        volumeMounts:
+        - name: code-data-vol
+          mountPath: /config
+      volumes:
+      - name: code-data-vol
+        persistentVolumeClaim:
+          claimName: codeserver-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: codeserver-service
+  namespace: codeserverns
+  labels:
+    app: codeserver
+    name: codeserver-service
+spec:
+  type: ClusterIP
+  selector:
+    app: codeserver
+  ports:
+  - port: 8443
+    targetPort: 8443
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: codeserver-ing
+  namespace: codeserverns
+  labels:
+    app: codeserver
+    name: dov-ing
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: code-157.230.195.149.nip.io
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: codeserver-service
+            port: 
+              number: 8443

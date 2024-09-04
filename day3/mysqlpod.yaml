@@ -1,0 +1,27 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql-po
+  namespace: default
+spec:
+  containers:
+  - name: mysql-container
+    image: mysql:8
+    env:
+    - name: MUSQL_ROOT_PASSWORD
+      value: changeit
+    ports:
+    - containerPort: 3306
+    volumeMountas:
+    - name: data-vol
+    mountPath: /var/lib/mysql
+  volumes:
+  - name: data-vol
+  hostPath:
+  #This creates a direcotry on the node itself. and data is going to go into the node.
+  # when the pod dies, this direcrory on the node will not be cleaned up.
+  # if 2 of these pods get scheduled on the same node, it will clash on each other
+  # 
+    path: /opt/data
+    type: DirectoryOnCreate
