@@ -1,0 +1,163 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minions
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-hsvc
+  namespace: minions
+  labels:
+    app: minio
+    name: minio-hsvc
+spec:
+  clusterIP: None
+  selector:
+    app: minio
+    name: minio-po
+  ports:
+    - port: 9000
+      name: data
+      targetPort: 9000
+    - port: 9090
+      name: console
+      targetPort: 9090
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-cm
+  namespace: minions
+data:
+  MINIO_ROOT_USER: minio-root-user
+  MINIO_DATA_DIR: /data
+  MINIO_DISTRIBUTED_MODE_ENABLED: 'yes'
+  MINIO_DISTRIBUTED_NODES: minio-sts-{0...3}.minio-hsvc.minions.svc.cluster.local/data
+  MINIO_API_PORT_NUMBER: '9000'
+  MINIO_CONSOLE_PORT_NUMBER: '9090'
+  BITNAMI_DEBUG: 'true'
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-secret
+  namespace: minions
+type: Opaque
+data:
+  MINIO_ROOT_PASSWORD: bWluaW8tcm9vdC1wYXNzd29yZA== # base64 for 'minio-root-password'
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio-sts
+  namespace: minions
+spec:
+  serviceName: minio-hsvc
+  replicas: 4
+  selector:
+    matchLabels:
+      app: minio
+      name: minio-po
+  template:
+    metadata:
+      labels:
+        app: minio
+        name: minio-po
+    spec:
+      securityContext:
+        fsGroup: 1001
+      containers:
+      - name: minio-container
+        image: bitnami/minio:latest
+        ports:
+        - containerPort: 9000
+          name: data
+        - containerPort: 9090
+          name: console
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        envFrom:
+        - configMapRef:
+            name: minio-cm
+        - secretRef:
+            name: minio-secret
+        # resources:
+        #   requests:
+        #     memory: "250Mi"
+        #     cpu: "200m"
+        # readinessProbe:
+        #   httpGet:
+        #     path: /minio/health/ready
+        #     port: 9000
+        #   initialDelaySeconds: 60
+        #   periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 60
+          periodSeconds: 20
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+      storageClassName: do-block-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-svc
+  namespace: minions
+spec:
+  type: ClusterIP
+  selector:
+    app: minio
+    name: minio-po
+  ports:
+  - name: data
+    port: 9000
+    targetPort: 9000
+  - name: console
+    port: 9090
+    targetPort: 9090
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-ing
+  namespace: minions
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: data.157.230.195.149.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio-svc
+            port:
+              number: 9000
+  - host: console.157.230.195.149.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio-svc
+            port:
+              number: 9090

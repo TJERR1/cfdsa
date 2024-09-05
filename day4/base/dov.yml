@@ -43,6 +43,9 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
 
 ---
 apiVersion: v1
@@ -61,6 +64,25 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dov-hsvc
+  namespace: dovns
+  labels:
+    app: dov
+    name: dov-hsvc
+spec:
+  clusterIP: None
+  selector:
+    app: dov
+    name: dov-sts
+  ports:
+  - port: 3000
+    targetPort: 3000
+
 
 ---
 apiVersion: networking.k8s.io/v1
@@ -84,30 +106,3 @@ spec:
             name: dov-svc
             port: 
               number: 3000
-
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: dov-hpa
-  namespace: dovns
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: dov-deploy
-  minReplicas: 1
-  maxReplicas: 8
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 10
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 10
